@@ -3,13 +3,16 @@ using UnityEngine.UI;
 
 public class ChemistryMapController : MonoBehaviour
 {
+    [Header("Màn bản đồ Hóa học")]
+    public GameObject mapPanel;
+
     [Header("Các chặng Hóa học")]
     public Button[] chapterButtons;
 
     [Header("Panel lý thuyết")]
     public TheoryPanel theoryPanel;
 
-    [Header("Nút quay lại")]
+    [Header("Nút quay lại trong theory_chemistry")]
     public Button backTheoryButton;
 
     [Header("Môn (khớp cột monID trong sheet câu hỏi)")]
@@ -17,14 +20,20 @@ public class ChemistryMapController : MonoBehaviour
 
     void Start()
     {
+        if (mapPanel == null)
+            mapPanel = gameObject;
+
         for (int i = 0; i < chapterButtons.Length; i++)
         {
             int chapter = i + 1;
 
-            chapterButtons[i].onClick.AddListener(() =>
+            if (chapterButtons[i] != null)
             {
-                OpenTheory(chapter);
-            });
+                chapterButtons[i].onClick.AddListener(() =>
+                {
+                    OpenTheory(chapter);
+                });
+            }
         }
 
         if (backTheoryButton != null)
@@ -43,7 +52,11 @@ public class ChemistryMapController : MonoBehaviour
         GameSession.Subject = subjectName;
         GameSession.Chapter = "Chương " + chapter;
 
-        theoryPanel.Show(id);
+        if (mapPanel != null)
+            mapPanel.SetActive(false);
+
+        if (theoryPanel != null)
+            theoryPanel.Show(id);
     }
 
     void CloseTheory()
@@ -51,6 +64,11 @@ public class ChemistryMapController : MonoBehaviour
         if (theoryPanel != null)
         {
             theoryPanel.gameObject.SetActive(false);
+        }
+
+        if (mapPanel != null)
+        {
+            mapPanel.SetActive(true);
         }
     }
 }

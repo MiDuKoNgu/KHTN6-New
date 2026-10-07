@@ -36,7 +36,7 @@ public class SheepQuizController : MonoBehaviour
     // =========================================================
 
     [Header("Google Apps Script")]
-    public string baseUrl = "DÁN_LINK_EXEC_VÀO_ĐÂY";
+    public string baseUrl = "https://script.google.com/macros/s/AKfycbxxE2R2ZoitgM647aQqnebUcG90lhIlodU0DcyiaZuKkLaVWl6oopI-TkeNM8_KKDWhUw/exec";
 
 
     // =========================================================
