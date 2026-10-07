@@ -49,6 +49,9 @@ public class CaveQuizController : MonoBehaviour
     public RectTransform person;
     public RectTransform treasure;
 
+    // Animator của Person
+    public Animator personAnimator;
+
     public GameObject stoneTemplate;
     public GameObject questionMarker;
 
@@ -215,6 +218,13 @@ public class CaveQuizController : MonoBehaviour
 
         locked = false;
         canMove = false;
+
+        // Nếu game bị tắt trong lúc Person đang chạy
+        // thì ép animation quay về Idle
+        if (personAnimator != null)
+        {
+            personAnimator.SetBool("isRunning", false);
+        }
     }
 
 
@@ -1707,24 +1717,31 @@ public class CaveQuizController : MonoBehaviour
     // MOVE
     // =========================================================
 
-    IEnumerator MoveTo(
-        Vector2Int cell
-    )
+    IEnumerator MoveTo(Vector2Int cell)
     {
-        Vector3 dest =
-            CellPos(cell);
+        // Lấy vị trí của ô cần di chuyển tới
+        Vector3 dest = CellPos(cell);
+
+        // Giữ nguyên trục Z của Person
+        dest.z = person.position.z;
 
 
-        dest.z =
-            person.position.z;
+        // =====================================================
+        // BẮT ĐẦU CHẠY
+        // =====================================================
 
+        if (personAnimator != null)
+        {
+            personAnimator.SetBool("isRunning", true);
+        }
+
+
+        // =====================================================
+        // DI CHUYỂN TỚI Ô ĐÍCH
+        // =====================================================
 
         while (
-            (
-                person.position
-                - dest
-            )
-            .sqrMagnitude
+            (person.position - dest).sqrMagnitude
             > 0.01f
         )
         {
@@ -1732,17 +1749,25 @@ public class CaveQuizController : MonoBehaviour
                 Vector3.MoveTowards(
                     person.position,
                     dest,
-                    moveSpeed
-                    * Time.deltaTime
+                    moveSpeed * Time.deltaTime
                 );
-
 
             yield return null;
         }
 
 
-        person.position =
-            dest;
+        // Đảm bảo Person nằm chính xác tại ô đích
+        person.position = dest;
+
+
+        // =====================================================
+        // DỪNG CHẠY -> IDLE
+        // =====================================================
+
+        if (personAnimator != null)
+        {
+            personAnimator.SetBool("isRunning", false);
+        }
     }
 
 
