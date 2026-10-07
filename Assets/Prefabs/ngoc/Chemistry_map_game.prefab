@@ -510,7 +510,7 @@ MonoBehaviour:
   - {fileID: 6401064278826481653}
   - {fileID: 1018908536975683760}
   theoryPanel: {fileID: 0}
-  backTheoryButton: {fileID: 4470230583198202419}
+  backTheoryButton: {fileID: 0}
   subjectName: "H\xF3a h\u1ECDc"
 --- !u!114 &6130164344940629652
 MonoBehaviour:

@@ -6,7 +6,7 @@ using UnityEngine.Networking;
 public class QuizQuestionLoader : MonoBehaviour
 {
     [Header("Google Apps Script /exec")]
-    public string baseUrl;
+    public string baseUrl = "https://script.google.com/macros/s/AKfycbxxE2R2ZoitgM647aQqnebUcG90lhIlodU0DcyiaZuKkLaVWl6oopI-TkeNM8_KKDWhUw/exec";
 
     [Header("Câu hỏi đã load")]
     public List<QuizQuestion> questions = new List<QuizQuestion>();
