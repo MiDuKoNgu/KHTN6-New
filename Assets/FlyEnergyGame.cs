@@ -27,11 +27,18 @@ public class FlyEnergyGame : MonoBehaviour
     [Header("Bay")]
     public float gravity = 2200f;
     public float flapVelocity = 700f;
-    public float pillarSpeed = 300f;
 
-    public float pillarSpacing = 0f;
-    public float yJitter = 120f;
-    public float groupTolerance = 40f;
+    // Chậm hơn một chút để dễ chơi
+    public float pillarSpeed = 250f;
+
+    // Khoảng cách giữa các cặp cột xa hơn
+    public float pillarSpacing = 800f;
+
+    // Random lên xuống nhẹ hơn
+    public float yJitter = 70f;
+
+    // Giúp cột trên + dưới được nhận đúng thành một cặp
+    public float groupTolerance = 120f;
 
     [Range(0f, 0.45f)]
     public float studentShrink = 0.3f;
@@ -88,7 +95,7 @@ public class FlyEnergyGame : MonoBehaviour
     // =========================================================
 
     [Header("Google Apps Script")]
-    public string baseUrl = "DÁN_LINK_EXEC_VÀO_ĐÂY";
+    public string baseUrl = "https://script.google.com/macros/s/AKfycbxxE2R2ZoitgM647aQqnebUcG90lhIlodU0DcyiaZuKkLaVWl6oopI-TkeNM8_KKDWhUw/exec";
 
 
     [Header("Thiết lập câu hỏi")]
@@ -194,6 +201,9 @@ public class FlyEnergyGame : MonoBehaviour
 
     bool locked;
 
+    // true khi panel câu hỏi đang mở
+    bool questionOpen = false;
+
     Color[] originalColors;
 
     GameObject tapArea;
@@ -204,11 +214,50 @@ public class FlyEnergyGame : MonoBehaviour
     // =========================================================
     // AWAKE
     // =========================================================
+    // =========================================================
+    // AUTO FIND QUESTION UI
+    // =========================================================
 
-    void Awake()
+    Transform FindDeepChild(Transform parent, string targetName)
     {
-        // Tự tìm area
-        if (!area)
+        if (parent == null)
+            return null;
+
+        foreach (Transform child in parent)
+        {
+            if (
+                child.name.Equals(
+                    targetName,
+                    System.StringComparison.OrdinalIgnoreCase
+                )
+            )
+            {
+                return child;
+            }
+
+            Transform result =
+                FindDeepChild(
+                    child,
+                    targetName
+                );
+
+            if (result != null)
+            {
+                return result;
+            }
+        }
+
+        return null;
+    }
+
+
+    void FindQuestionReferences()
+    {
+        // =====================================================
+        // TÌM AREA
+        // =====================================================
+
+        if (area == null)
         {
             area =
                 transform.parent
@@ -216,8 +265,189 @@ public class FlyEnergyGame : MonoBehaviour
         }
 
 
-        // Tự tìm student
-        if (!student)
+        if (area == null)
+        {
+            Debug.LogError(
+                "FLY: Không tìm thấy AREA!"
+            );
+
+            return;
+        }
+
+
+        // =====================================================
+        // TÌM QUESTION PANEL
+        // =====================================================
+
+        if (questionPanel == null)
+        {
+            Transform panel =
+                FindDeepChild(
+                    area,
+                    "QsPanel1"
+                );
+
+            if (panel != null)
+            {
+                questionPanel =
+                    panel.gameObject;
+            }
+        }
+
+
+        // =====================================================
+        // TÌM QUESTION TEXT
+        // =====================================================
+
+        if (
+            questionText == null
+            &&
+            questionPanel != null
+        )
+        {
+            Transform qt =
+                FindDeepChild(
+                    questionPanel.transform,
+                    "QuestionText"
+                );
+
+            if (qt != null)
+            {
+                questionText =
+                    qt.GetComponent<TMP_Text>();
+            }
+        }
+
+
+        // =====================================================
+        // TỰ TÌM 4 BUTTON NẾU THIẾU
+        // =====================================================
+
+        if (
+            answerButtons == null
+            ||
+            answerButtons.Length < 4
+        )
+        {
+            answerButtons =
+                new Button[4];
+
+
+            for (int i = 0; i < 4; i++)
+            {
+                string buttonName =
+                    "a" + (i + 1);
+
+
+                Transform t =
+                    questionPanel != null
+                        ? FindDeepChild(
+                            questionPanel.transform,
+                            buttonName
+                        )
+                        : null;
+
+
+                if (t != null)
+                {
+                    answerButtons[i] =
+                        t.GetComponent<Button>();
+                }
+            }
+        }
+
+
+        // =====================================================
+        // TỰ LẤY TEXT BÊN TRONG TỪNG BUTTON
+        // =====================================================
+
+        if (
+            answerTexts == null
+            ||
+            answerTexts.Length < 4
+        )
+        {
+            answerTexts =
+                new TMP_Text[4];
+        }
+
+
+        for (int i = 0; i < 4; i++)
+        {
+            if (
+                answerTexts[i] == null
+                &&
+                answerButtons != null
+                &&
+                i < answerButtons.Length
+                &&
+                answerButtons[i] != null
+            )
+            {
+                answerTexts[i] =
+                    answerButtons[i]
+                        .GetComponentInChildren<
+                            TMP_Text
+                        >(true);
+            }
+        }
+
+
+        // =====================================================
+        // DEBUG
+        // =====================================================
+
+        Debug.Log(
+            "===== FLY UI REF CHECK ====="
+            + "\nObject: "
+            + gameObject.name
+            + "\nPanel: "
+            + (
+                questionPanel != null
+                    ? questionPanel.name
+                    : "NULL"
+            )
+            + "\nQuestionText: "
+            + (
+                questionText != null
+                    ? questionText.name
+                    : "NULL"
+            )
+            + "\nButtons: "
+            + (
+                answerButtons != null
+                    ? answerButtons.Length
+                    : 0
+            )
+            + "\nAnswerTexts: "
+            + (
+                answerTexts != null
+                    ? answerTexts.Length
+                    : 0
+            )
+        );
+    }
+
+
+    void Awake()
+    {
+        // =====================================================
+        // AREA
+        // =====================================================
+
+        if (area == null)
+        {
+            area =
+                transform.parent
+                as RectTransform;
+        }
+
+
+        // =====================================================
+        // STUDENT
+        // =====================================================
+
+        if (student == null)
         {
             student =
                 FindChildByName(
@@ -226,31 +456,41 @@ public class FlyEnergyGame : MonoBehaviour
         }
 
 
-        // Tự tìm Stones
+        // =====================================================
+        // STONES
+        // =====================================================
+
         if (
             stones == null
             ||
             stones.Length == 0
         )
         {
-            var list =
+            List<RectTransform> list =
                 new List<RectTransform>();
 
 
-            foreach (
-                Transform t
-                in area
-            )
+            if (area != null)
             {
-                if (
-                    t.name
-                    .ToLower()
-                    .StartsWith("stone")
+                foreach (
+                    Transform t
+                    in area
                 )
                 {
-                    list.Add(
-                        (RectTransform)t
-                    );
+                    if (
+                        t.name
+                        .ToLower()
+                        .StartsWith("stone")
+                    )
+                    {
+                        RectTransform rt =
+                            t as RectTransform;
+
+                        if (rt != null)
+                        {
+                            list.Add(rt);
+                        }
+                    }
                 }
             }
 
@@ -260,25 +500,37 @@ public class FlyEnergyGame : MonoBehaviour
         }
 
 
-        // Lưu màu button
+        // =====================================================
+        // TỰ TÌM UI CÂU HỎI
+        // =====================================================
+
+        FindQuestionReferences();
+
+
+        // =====================================================
+        // BUTTON COLORS + EVENTS
+        // =====================================================
+
+        int buttonCount =
+            answerButtons != null
+                ? answerButtons.Length
+                : 0;
+
+
         originalColors =
-            new Color[
-                answerButtons.Length
-            ];
+            new Color[buttonCount];
 
 
         for (
             int i = 0;
-            i < answerButtons.Length;
+            i < buttonCount;
             i++
         )
         {
             int idx = i;
 
 
-            if (
-                answerButtons[i] == null
-            )
+            if (answerButtons[i] == null)
             {
                 continue;
             }
@@ -290,9 +542,15 @@ public class FlyEnergyGame : MonoBehaviour
 
 
             originalColors[i] =
-                img
-                ? img.color
-                : Color.white;
+                img != null
+                    ? img.color
+                    : Color.white;
+
+
+            // tránh listener bị add trùng
+            answerButtons[i]
+                .onClick
+                .RemoveAllListeners();
 
 
             answerButtons[i]
@@ -304,8 +562,17 @@ public class FlyEnergyGame : MonoBehaviour
         }
 
 
-        if (restartButton)
+        // =====================================================
+        // RESTART
+        // =====================================================
+
+        if (restartButton != null)
         {
+            restartButton
+                .onClick
+                .RemoveAllListeners();
+
+
             restartButton
                 .onClick
                 .AddListener(
@@ -314,14 +581,26 @@ public class FlyEnergyGame : MonoBehaviour
         }
 
 
-        if (exitButton)
+        // =====================================================
+        // EXIT
+        // =====================================================
+
+        if (exitButton != null)
         {
+            exitButton
+                .onClick
+                .RemoveAllListeners();
+
+
             exitButton
                 .onClick
                 .AddListener(
                     ExitGame
                 );
         }
+
+
+        HideEndButtons();
     }
 
 
@@ -334,6 +613,19 @@ public class FlyEnergyGame : MonoBehaviour
         onExit?.Invoke();
     }
 
+    void HideEndButtons()
+    {
+        if (restartButton != null)
+        {
+            restartButton.gameObject.SetActive(false);
+        }
+
+        if (exitButton != null)
+        {
+            exitButton.gameObject.SetActive(false);
+        }
+    }
+
 
     // =========================================================
     // ENABLE
@@ -344,6 +636,9 @@ public class FlyEnergyGame : MonoBehaviour
         Time.timeScale = 1f;
 
         StopAllCoroutines();
+
+        // Không cho nút hiện khi vừa vào game
+        HideEndButtons();
 
         StartCoroutine(
             Begin()
@@ -379,20 +674,7 @@ public class FlyEnergyGame : MonoBehaviour
         SetQuestionUI(false);
 
 
-        if (restartButton)
-        {
-            restartButton
-                .gameObject
-                .SetActive(false);
-        }
-
-
-        if (exitButton)
-        {
-            exitButton
-                .gameObject
-                .SetActive(false);
-        }
+        HideEndButtons();
 
 
         EnsureTapArea();
@@ -847,7 +1129,8 @@ public class FlyEnergyGame : MonoBehaviour
         answeredCount = 0;
 
         velY = 0f;
-
+        questionOpen = false;
+        locked = false;
 
         order.Clear();
 
@@ -877,20 +1160,7 @@ public class FlyEnergyGame : MonoBehaviour
         }
 
 
-        if (restartButton)
-        {
-            restartButton
-                .gameObject
-                .SetActive(false);
-        }
-
-
-        if (exitButton)
-        {
-            exitButton
-                .gameObject
-                .SetActive(false);
-        }
+        HideEndButtons();
 
 
         SetQuestionUI(false);
@@ -966,13 +1236,16 @@ public class FlyEnergyGame : MonoBehaviour
             return;
 
 
-        energy -=
-            energyPerFlap;
+        energy -= energyPerFlap;
 
+        // Không cho nhỏ hơn 0
+        energy = Mathf.Clamp(
+            energy,
+            0,
+            maxEnergy
+        );
 
-        velY =
-            flapVelocity;
-
+        velY = flapVelocity;
 
         UpdateUI();
     }
@@ -1265,11 +1538,105 @@ public class FlyEnergyGame : MonoBehaviour
 
     void ShowNextQuestion()
     {
+        // =====================================================
+        // TRẠNG THÁI CÂU HỎI
+        // =====================================================
+
+        state = State.Asking;
+        locked = false;
+        questionOpen = true;
+
+
+
+
+        // =====================================================
+        // VALIDATE
+        // =====================================================
+
+        if (
+            questions == null
+            ||
+            questions.Count == 0
+        )
+        {
+            Debug.LogError(
+                "FLY: Không có câu hỏi!"
+            );
+
+            questionOpen = false;
+            SetQuestionUI(false);
+
+            return;
+        }
+
+
+        if (questionPanel == null)
+        {
+            Debug.LogError(
+                "FLY: Không tìm thấy QsPanel1!"
+            );
+
+            questionOpen = false;
+
+            return;
+        }
+
+
+        if (questionText == null)
+        {
+            Debug.LogError(
+                "FLY: Không tìm thấy QuestionText!"
+            );
+
+            questionOpen = false;
+            SetQuestionUI(false);
+
+            return;
+        }
+
+
+        if (
+            answerButtons == null
+            ||
+            answerButtons.Length < 4
+        )
+        {
+            Debug.LogError(
+                "FLY: Không đủ 4 Answer Button!"
+            );
+
+            questionOpen = false;
+            SetQuestionUI(false);
+
+            return;
+        }
+
+
+        if (
+            answerTexts == null
+            ||
+            answerTexts.Length < 4
+        )
+        {
+            Debug.LogError(
+                "FLY: Không đủ 4 Answer Text!"
+            );
+
+            questionOpen = false;
+            SetQuestionUI(false);
+
+            return;
+        }
+
+
+        // =====================================================
+        // TẠO THỨ TỰ CÂU HỎI
+        // =====================================================
+
         if (
             order.Count == 0
             ||
-            orderIdx >=
-            order.Count
+            orderIdx >= order.Count
         )
         {
             order.Clear();
@@ -1287,17 +1654,49 @@ public class FlyEnergyGame : MonoBehaviour
 
             Shuffle(order);
 
-
             orderIdx = 0;
         }
 
 
+        // =====================================================
+        // LẤY CÂU HỎI
+        // =====================================================
+
+        int questionIndex =
+            order[orderIdx++];
+
+
+        if (
+            questionIndex < 0
+            ||
+            questionIndex >= questions.Count
+        )
+        {
+            Debug.LogError(
+                "FLY: Question Index lỗi: "
+                + questionIndex
+            );
+
+            questionOpen = false;
+
+            return;
+        }
+
+
         currentQ =
-            questions[
-                order[
-                    orderIdx++
-                ]
-            ];
+            questions[questionIndex];
+
+
+        if (currentQ == null)
+        {
+            Debug.LogError(
+                "FLY: currentQ NULL!"
+            );
+
+            questionOpen = false;
+
+            return;
+        }
 
 
         locked = false;
@@ -1317,58 +1716,174 @@ public class FlyEnergyGame : MonoBehaviour
         );
 
 
-        questionText.text =
-            currentQ.question;
+        // =====================================================
+        // CÂU HỎI
+        // =====================================================
 
+        questionText.text =
+            currentQ.question ?? "";
+
+
+        // =====================================================
+        // ĐÁP ÁN
+        // =====================================================
 
         string[] opts =
         {
-            currentQ.optionA,
-            currentQ.optionB,
-            currentQ.optionC,
-            currentQ.optionD
-        };
+        currentQ.optionA ?? "",
+        currentQ.optionB ?? "",
+        currentQ.optionC ?? "",
+        currentQ.optionD ?? ""
+    };
 
 
         for (
             int i = 0;
-            i < answerButtons.Length;
+            i < 4;
             i++
         )
         {
-            if (
-                i < answerTexts.Length
-                &&
-                answerTexts[i]
-            )
+            if (answerButtons[i] == null)
+            {
+                Debug.LogError(
+                    "FLY: Button "
+                    + i
+                    + " đang NULL!"
+                );
+
+                continue;
+            }
+
+
+            // Hiện button
+            answerButtons[i]
+                .gameObject
+                .SetActive(true);
+
+
+            // Cho phép click
+            answerButtons[i]
+                .interactable = true;
+
+
+            // Đảm bảo listener đúng (phòng trường hợp mất listener)
+            int idx = i;
+            answerButtons[i]
+                .onClick
+                .RemoveAllListeners();
+            answerButtons[i]
+                .onClick
+                .AddListener(
+                    () => OnAnswer(idx)
+                );
+
+
+            // Bật raycast
+            Image img =
+                answerButtons[i]
+                    .GetComponent<Image>();
+
+
+            if (img != null)
+            {
+                img.raycastTarget = true;
+
+
+                if (
+                    originalColors != null
+                    &&
+                    i < originalColors.Length
+                )
+                {
+                    img.color =
+                        originalColors[i];
+                }
+            }
+
+
+            // Tìm text nếu bị mất reference
+            if (answerTexts[i] == null)
+            {
+                answerTexts[i] =
+                    answerButtons[i]
+                        .GetComponentInChildren<
+                            TMP_Text
+                        >(true);
+            }
+
+
+            if (answerTexts[i] != null)
             {
                 answerTexts[i].text =
                     opts[i];
             }
-
-
-            Image img =
-                answerButtons[i]
-                .GetComponent<Image>();
-
-
-            if (img)
+            else
             {
-                img.color =
-                    originalColors[i];
+                Debug.LogError(
+                    "FLY: Không tìm thấy text của Button "
+                    + i
+                );
             }
         }
 
 
-        if (
-            explanationText
-        )
+        // =====================================================
+        // GIẢI THÍCH
+        // =====================================================
+
+        if (explanationText != null)
         {
             explanationText.text = "";
         }
 
 
-        SetQuestionUI(true);
+        // =====================================================
+        // TẮT TAP AREA
+        // =====================================================
+
+        if (tapArea != null)
+        {
+            tapArea.SetActive(false);
+        }
+
+
+        // =====================================================
+        // HIỆN PANEL
+        // =====================================================
+
+        questionPanel.SetActive(true);
+
+        questionText
+            .gameObject
+            .SetActive(true);
+
+
+        // Đưa panel lên trên cùng
+        questionPanel
+            .transform
+            .SetAsLastSibling();
+
+
+        CanvasGroup cg =
+            questionPanel
+                .GetComponent<CanvasGroup>();
+
+
+        if (cg != null)
+        {
+            cg.alpha = 1f;
+            cg.interactable = true;
+            cg.blocksRaycasts = true;
+        }
+
+
+        Debug.Log(
+            "FLY: Đã mở panel câu hỏi"
+            + " | state = "
+            + state
+            + " | questionOpen = "
+            + questionOpen
+        );
     }
 
 
@@ -1376,17 +1891,91 @@ public class FlyEnergyGame : MonoBehaviour
     // ANSWER
     // =========================================================
 
-    void OnAnswer(
-        int chosen
-    )
+    void OnAnswer(int chosen)
     {
+        Debug.Log(
+            "FLY CLICK ANSWER: "
+            + chosen
+            + " | state = "
+            + state
+            + " | locked = "
+            + locked
+            + " | questionOpen = "
+            + questionOpen
+        );
+
+
+        // =====================================================
+        // PANEL CÂU HỎI PHẢI ĐANG MỞ
+        // =====================================================
+
+        bool panelIsOpen =
+            questionPanel != null
+            &&
+            questionPanel.activeInHierarchy;
+
+
         if (
-            state !=
-                State.Asking
-            ||
-            locked
+            !questionOpen
+            &&
+            !panelIsOpen
         )
         {
+            Debug.LogWarning(
+                "FLY: Câu hỏi hiện không mở!"
+            );
+
+            return;
+        }
+
+
+        // Nếu panel đang mở thì ép về Asking
+        state = State.Asking;
+        questionOpen = true;
+
+
+        // =====================================================
+        // KHÓA CLICK NHIỀU LẦN
+        // =====================================================
+
+        if (locked)
+        {
+            Debug.LogWarning(
+                "FLY: Đáp án đang bị khóa!"
+            );
+
+            return;
+        }
+
+
+        // =====================================================
+        // KIỂM TRA CÂU HỎI
+        // =====================================================
+
+        if (currentQ == null)
+        {
+            Debug.LogWarning(
+                "FLY: currentQ NULL → tải lại câu hỏi"
+            );
+
+            locked = false;
+            ShowNextQuestion();
+
+            return;
+        }
+
+
+        if (
+            chosen < 0
+            ||
+            chosen >= 4
+        )
+        {
+            Debug.LogError(
+                "FLY: chosen không hợp lệ: "
+                + chosen
+            );
+
             return;
         }
 
@@ -1394,16 +1983,87 @@ public class FlyEnergyGame : MonoBehaviour
         locked = true;
 
 
+        // =====================================================
+        // KHÓA 4 BUTTON
+        // =====================================================
+
+        if (answerButtons != null)
+        {
+            for (
+                int i = 0;
+                i < answerButtons.Length;
+                i++
+            )
+            {
+                if (answerButtons[i] != null)
+                {
+                    answerButtons[i]
+                        .interactable = false;
+                }
+            }
+        }
+
+
+        // =====================================================
+        // TÌM ĐÁP ÁN ĐÚNG
+        // =====================================================
+
         int correctIndex =
             ParseLetter(
                 currentQ.correct
             );
 
 
-        bool isCorrect =
-            chosen ==
-            correctIndex;
+        Debug.Log(
+            "FLY ANSWER CHECK"
+            + " | chosen = "
+            + chosen
+            + " | correct = "
+            + correctIndex
+            + " | raw = "
+            + currentQ.correct
+        );
 
+
+        if (
+            correctIndex < 0
+            ||
+            correctIndex >= 4
+        )
+        {
+            Debug.LogError(
+                "FLY: correctIndex không hợp lệ!"
+            );
+
+
+            locked = false;
+
+
+            for (
+                int i = 0;
+                i < answerButtons.Length;
+                i++
+            )
+            {
+                if (answerButtons[i] != null)
+                {
+                    answerButtons[i]
+                        .interactable = true;
+                }
+            }
+
+
+            return;
+        }
+
+
+        bool isCorrect =
+            chosen == correctIndex;
+
+
+        // =====================================================
+        // MÀU ĐÁP ÁN
+        // =====================================================
 
         SetButtonColor(
             correctIndex,
@@ -1423,6 +2083,10 @@ public class FlyEnergyGame : MonoBehaviour
         answeredCount++;
 
 
+        // =====================================================
+        // ĐÚNG
+        // =====================================================
+
         if (isCorrect)
         {
             int gain =
@@ -1436,30 +2100,56 @@ public class FlyEnergyGame : MonoBehaviour
                     maxEnergy,
                     energy + gain
                 );
-
+            score += 100;
 
             correctCount++;
 
 
+            Debug.Log(
+                "FLY: TRẢ LỜI ĐÚNG"
+                + " | +"
+                + gain
+                + " Energy"
+                + " | Energy = "
+                + energy
+            );
+
+
             onCorrect?.Invoke();
         }
+
+        // =====================================================
+        // SAI
+        // =====================================================
+
         else
         {
+            Debug.Log(
+                "FLY: TRẢ LỜI SAI"
+            );
+
+
             onWrong?.Invoke();
         }
 
 
-        if (
-            explanationText
-        )
+        // =====================================================
+        // GIẢI THÍCH
+        // =====================================================
+
+        if (explanationText != null)
         {
             explanationText.text =
-                currentQ.explanation;
+                currentQ.explanation ?? "";
         }
 
 
         UpdateUI();
 
+
+        // =====================================================
+        // CHỜ RỒI CHUYỂN TIẾP
+        // =====================================================
 
         StartCoroutine(
             AfterAnswer()
@@ -1479,13 +2169,16 @@ public class FlyEnergyGame : MonoBehaviour
             );
 
 
-        if (
-            explanationText
-        )
+        if (explanationText != null)
         {
             explanationText.text = "";
         }
 
+
+        // =====================================================
+        // NẾU VẪN THIẾU NĂNG LƯỢNG
+        // -> HỎI TIẾP
+        // =====================================================
 
         if (
             energy
@@ -1496,31 +2189,50 @@ public class FlyEnergyGame : MonoBehaviour
             )
         )
         {
+            locked = false;
+            questionOpen = true;
+
             ShowNextQuestion();
 
             yield break;
         }
 
 
+        // =====================================================
+        // ĐỦ NĂNG LƯỢNG
+        // -> ĐÓNG CÂU HỎI
+        // =====================================================
+
+        questionOpen = false;
+        locked = false;
+
+
         SetQuestionUI(false);
 
 
-        Say(
-            "Chạm để bay tiếp!"
-        );
+        Say("");
 
 
-        tapArea
-            .SetActive(true);
+        if (tapArea != null)
+        {
+            tapArea.SetActive(true);
 
-
-        tapArea
-            .transform
-            .SetAsLastSibling();
+            tapArea
+                .transform
+                .SetAsLastSibling();
+        }
 
 
         state =
-            State.Ready;
+            State.Playing;
+
+
+        Debug.Log(
+            "FLY: Đã trả lời xong"
+            + " | Energy = "
+            + energy
+            + " | state = Ready"
+        );
     }
 
 
@@ -1528,20 +2240,18 @@ public class FlyEnergyGame : MonoBehaviour
     // FINISH
     // =========================================================
 
-    void Finish(
-        string head
-    )
+    void Finish(string head)
     {
-        state =
-            State.Over;
+        state = State.Over;
+        questionOpen = false;
+        locked = true;
 
-
-        tapArea
-            .SetActive(false);
-
+        if (tapArea != null)
+        {
+            tapArea.SetActive(false);
+        }
 
         SetQuestionUI(false);
-
 
         Say(
             head
@@ -1556,27 +2266,65 @@ public class FlyEnergyGame : MonoBehaviour
         );
 
 
-        if (restartButton)
-        {
-            restartButton
-                .gameObject
-                .SetActive(true);
+        // =====================================================
+        // HIỆN NÚT TRANG CHỦ
+        // =====================================================
 
-            restartButton
-                .transform
-                .SetAsLastSibling();
+        if (restartButton != null)
+        {
+            restartButton.gameObject.SetActive(true);
+
+            // Đưa lên trên cùng UI
+            restartButton.transform.SetAsLastSibling();
+
+            RectTransform rt =
+                restartButton.GetComponent<RectTransform>();
+
+            if (rt != null)
+            {
+                rt.localScale = Vector3.one;
+            }
+
+            Debug.Log(
+                "FLY: Đã bật nút Trang chủ."
+            );
+        }
+        else
+        {
+            Debug.LogError(
+                "FLY: Restart Button chưa được gán!"
+            );
         }
 
 
-        if (exitButton)
-        {
-            exitButton
-                .gameObject
-                .SetActive(true);
+        // =====================================================
+        // HIỆN NÚT THOÁT GAME
+        // =====================================================
 
-            exitButton
-                .transform
-                .SetAsLastSibling();
+        if (exitButton != null)
+        {
+            exitButton.gameObject.SetActive(true);
+
+            // Đưa lên trên cùng UI
+            exitButton.transform.SetAsLastSibling();
+
+            RectTransform rt =
+                exitButton.GetComponent<RectTransform>();
+
+            if (rt != null)
+            {
+                rt.localScale = Vector3.one;
+            }
+
+            Debug.Log(
+                "FLY: Đã bật nút Thoát game."
+            );
+        }
+        else
+        {
+            Debug.LogError(
+                "FLY: Exit Button chưa được gán!"
+            );
         }
 
 
@@ -1592,112 +2340,145 @@ public class FlyEnergyGame : MonoBehaviour
     {
         groups.Clear();
 
+        studentStart = student.localPosition;
 
-        studentStart =
-            student.localPosition;
-
-
-        var list =
+        List<RectTransform> list =
             new List<RectTransform>();
 
-
-        foreach (
-            RectTransform s
-            in stones
-        )
+        foreach (RectTransform s in stones)
         {
-            if (s)
+            if (s != null)
             {
                 list.Add(s);
             }
         }
 
-
+        // Sắp xếp Stone từ trái sang phải
         list.Sort(
             (a, b) =>
-                a.localPosition.x
-                .CompareTo(
+                a.localPosition.x.CompareTo(
                     b.localPosition.x
                 )
         );
 
 
-        Group cur = null;
+        // =====================================================
+        // GOM CÁC CỘT CÓ X GẦN NHAU THÀNH MỘT GROUP
+        // =====================================================
 
-
-        foreach (
-            RectTransform s
-            in list
-        )
+        foreach (RectTransform s in list)
         {
-            float x =
-                s.localPosition.x;
+            float x = s.localPosition.x;
+
+            Group bestGroup = null;
+            float bestDistance = float.MaxValue;
 
 
-            if (
-                cur == null
-                ||
-                x - cur.startX
-                    > groupTolerance
-            )
+            foreach (Group g in groups)
             {
-                cur =
-                    new Group
-                    {
-                        startX = x,
-                        x = x
-                    };
+                float distance =
+                    Mathf.Abs(x - g.startX);
 
-
-                groups.Add(cur);
+                if (
+                    distance <= groupTolerance
+                    &&
+                    distance < bestDistance
+                )
+                {
+                    bestDistance = distance;
+                    bestGroup = g;
+                }
             }
 
 
-            cur.items.Add(s);
+            // Không tìm thấy group phù hợp
+            // -> tạo group mới
+            if (bestGroup == null)
+            {
+                bestGroup = new Group
+                {
+                    startX = x,
+                    x = x,
+                    dy = 0f,
+                    passed = false
+                };
 
-            cur.offsetX.Add(
-                x - cur.startX
+                groups.Add(bestGroup);
+            }
+
+
+            bestGroup.items.Add(s);
+
+            bestGroup.offsetX.Add(
+                x - bestGroup.startX
             );
 
-            cur.baseY.Add(
+            bestGroup.baseY.Add(
                 s.localPosition.y
             );
         }
 
 
-        spacing =
-            pillarSpacing;
+        // =====================================================
+        // SẮP XẾP GROUP TỪ TRÁI SANG PHẢI
+        // =====================================================
+
+        groups.Sort(
+            (a, b) =>
+                a.startX.CompareTo(
+                    b.startX
+                )
+        );
 
 
-        if (
-            spacing <= 0f
-        )
+        // =====================================================
+        // KHOẢNG CÁCH CÁC GROUP
+        // =====================================================
+
+        if (pillarSpacing > 0f)
         {
+            spacing = pillarSpacing;
+        }
+        else if (groups.Count > 1)
+        {
+            float total =
+                groups[groups.Count - 1].startX
+                - groups[0].startX;
+
             spacing =
-                groups.Count > 1
-                ?
-                (
-                    groups[
-                        groups.Count - 1
-                    ].startX
-                    -
-                    groups[0]
-                        .startX
-                )
-                /
-                (
-                    groups.Count - 1
-                )
-                :
-                600f;
+                total /
+                (groups.Count - 1);
+        }
+        else
+        {
+            spacing = 500f;
         }
 
 
-        if (
-            spacing < 50f
-        )
+        if (spacing < 200f)
         {
-            spacing = 600f;
+            spacing = 500f;
+        }
+
+
+        // DEBUG
+        Debug.Log(
+            "FLY: Có "
+            + groups.Count
+            + " nhóm cột. Spacing = "
+            + spacing
+        );
+
+
+        for (int i = 0; i < groups.Count; i++)
+        {
+            Debug.Log(
+                "Group "
+                + i
+                + " có "
+                + groups[i].items.Count
+                + " Stone"
+            );
         }
     }
 
